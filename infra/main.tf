@@ -19,3 +19,10 @@ module "app" {
   bucket_name = module.storage.bucket_name
   bucket_arn  = module.storage.bucket_arn
 }
+
+module "github_oidc" {
+  source = "./modules/github-oidc"
+
+  name        = "devsecops-lab"
+  github_repo = "Harley305/devsecops-lab"
+}
