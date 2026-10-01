@@ -44,7 +44,7 @@ flowchart LR
 ## Roadmap
 
 - [x] Terraform modules: network, storage, app
-- [ ] GitHub OIDC role so CI needs no stored AWS keys
+- [x] GitHub OIDC role so CI needs no stored AWS keys
 - [ ] Remote state in S3 with native locking
 - [ ] GitHub Actions pipeline: SAST, SCA and IaC scanning that fail the build
 - [ ] Compliance as code: CIS mapping, custom policy, documented exceptions, drift detection
