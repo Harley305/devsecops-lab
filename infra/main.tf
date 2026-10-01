@@ -10,3 +10,12 @@ module "storage" {
 
   name = "devsecops-lab"
 }
+
+module "app" {
+  source = "./modules/app"
+
+  name        = "devsecops-lab"
+  source_dir  = "${path.root}/../app"
+  bucket_name = module.storage.bucket_name
+  bucket_arn  = module.storage.bucket_arn
+}
