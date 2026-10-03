@@ -19,7 +19,7 @@ variable "bucket_arn" {
 }
 
 variable "log_retention_days" {
-  description = "How long to keep function logs"
+  description = "How long to keep function logs (365 meets CKV_AWS_338)"
   type        = number
-  default     = 14
+  default     = 365
 }
