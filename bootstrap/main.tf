@@ -25,6 +25,7 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "state" {
+  #checkov:skip=CKV_AWS_145:Encrypted at rest with AWS-managed AES256 keys; a customer-managed KMS key adds monthly cost with no benefit for lab state
   bucket_prefix = "devsecops-lab-tfstate-"
 
   # Losing state means Terraform forgets everything it built

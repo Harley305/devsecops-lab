@@ -1,4 +1,5 @@
 resource "aws_s3_bucket" "data" {
+  #checkov:skip=CKV_AWS_145:Encrypted at rest with AWS-managed AES256 keys; a customer-managed KMS key adds monthly cost with no benefit for lab data
   bucket_prefix = "${var.name}-data-"
   force_destroy = true # lab only: lets destroy remove a non-empty bucket
 }
