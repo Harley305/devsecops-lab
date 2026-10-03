@@ -3,7 +3,7 @@
 Every Checkov finding in this repo is either fixed or listed here with a reason. Each exception is also marked in the code with a `#checkov:skip` comment next to the resource it applies to.
 
 **Last reviewed:** 2026-10-02
-**Scan result:** 88 passed, 0 failed, 7 skipped
+**Scan result:** 119 passed, 0 failed, 16 skipped (Checkov 3.3.20 in CI)
 
 ## Fixed
 

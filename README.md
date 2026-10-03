@@ -2,7 +2,7 @@
 
 AWS infrastructure built with Terraform, secured by a GitHub Actions pipeline that runs SAST, SCA and IaC scanning and blocks any change that fails a check.
 
-> **Status: in progress.** All infrastructure code is written, validated and security-scanned (Checkov: 88 passed, 0 failed, 7 documented exceptions). The automated GitHub Actions pipeline is next.
+> **Status: in progress.** All infrastructure code is written, validated and security-scanned (Checkov: 119 passed, 0 failed, 16 documented exceptions). Every pull request is scanned automatically by GitHub Actions.
 
 ## Architecture
 
@@ -56,11 +56,22 @@ Infrastructure code is scanned with [Checkov](https://www.checkov.io/).
 
 | Result | Count |
 | --- | --- |
-| Passed | 88 |
+| Passed | 119 |
 | Failed | 0 |
-| Documented exceptions | 7 |
+| Documented exceptions | 16 |
 
 Every finding was either fixed or accepted with a written reason. Accepted findings are marked in the code with `#checkov:skip` comments and listed with their compensating controls in [EXCEPTIONS.md](EXCEPTIONS.md).
+
+## CI pipeline
+
+Every pull request runs four jobs in GitHub Actions. All actions are pinned to full commit SHAs, and the workflow runs with read-only permissions.
+
+| Job | Tool | Fails the build on |
+| --- | --- | --- |
+| Terraform | `check.sh` + TFLint | Formatting, invalid code, Terraform mistakes |
+| IaC scan | Checkov | Any new infrastructure misconfiguration |
+| SCA and secrets | Trivy | HIGH or CRITICAL vulnerable dependencies, leaked secrets |
+| SAST | Semgrep | Insecure patterns in the Python code |
 
 ## Running the checks locally
 
@@ -71,7 +82,7 @@ checkov -d . --framework terraform --quiet --compact   # security scan
 
 ## Workflow
 
-All changes go through a branch and a pull request, then a squash merge into `main`. Once the pipeline is in place, every pull request will be scanned automatically and a failing check will block the merge.
+All changes go through a branch and a pull request, then a squash merge into `main`. Every pull request runs the CI pipeline below, and a failing check blocks the merge.
 
 ## Roadmap
 
@@ -79,7 +90,7 @@ All changes go through a branch and a pull request, then a squash merge into `ma
 - [x] GitHub OIDC roles so CI needs no stored AWS keys
 - [x] Remote state bucket and S3 backend with native locking (code complete)
 - [x] Checkov scan triaged: findings fixed or documented in `EXCEPTIONS.md`
-- [ ] GitHub Actions pipeline: SAST, SCA and IaC scanning that fail the build
+- [x] GitHub Actions pipeline: SAST, SCA and IaC scanning that fail the build
 - [ ] Branch protection requiring all checks to pass
 - [ ] Compliance as code: CIS mapping, custom policy, drift detection
 - [ ] Deploy to AWS
