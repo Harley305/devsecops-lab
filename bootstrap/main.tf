@@ -25,6 +25,10 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "state" {
+  #checkov:skip=CKV2_AWS_62:No service consumes state bucket events
+  #checkov:skip=CKV_AWS_18:Access logs would need a separate log bucket that fails the same check; CloudTrail data events planned once deployed
+  #checkov:skip=CKV_AWS_144:Cross-region replication doubles cost; state is versioned and protected by prevent_destroy
+  #checkov:skip=CKV_AWS_145:Encrypted at rest with AWS-managed AES256 keys; a customer-managed KMS key adds monthly cost with no benefit for lab state
   bucket_prefix = "devsecops-lab-tfstate-"
 
   # Losing state means Terraform forgets everything it built

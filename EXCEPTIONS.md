@@ -3,7 +3,7 @@
 Every Checkov finding in this repo is either fixed or listed here with a reason. Each exception is also marked in the code with a `#checkov:skip` comment next to the resource it applies to.
 
 **Last reviewed:** 2026-10-02
-**Scan result:** 88 passed, 0 failed, 7 skipped
+**Scan result:** 119 passed, 0 failed, 16 skipped (Checkov 3.3.20 in CI)
 
 ## Fixed
 
@@ -11,12 +11,18 @@ Every Checkov finding in this repo is either fixed or listed here with a reason.
 | --- | --- | --- |
 | CKV_AWS_338 | Keep CloudWatch logs at least 1 year | Log retention raised from 14 to 365 days |
 | CKV_AWS_50 | Enable X-Ray tracing on Lambda | Active tracing enabled, with `xray:PutTraceSegments` and `xray:PutTelemetryRecords` permissions |
+| CKV2_AWS_61 | Data bucket needs a lifecycle configuration | Old versions expire after 90 days; incomplete uploads cleaned up after 7 days |
 
 ## Accepted exceptions
 
 | Check | Resource | Requirement | Reason | Compensating control / plan |
 | --- | --- | --- | --- | --- |
 | CKV_AWS_158 | Lambda log group | Customer-managed KMS key for logs | Logs use AWS-managed encryption by default; a customer-managed key adds cost with no benefit for lab data | Encryption at rest still applies |
+| CKV_AWS_145 | Data and state S3 buckets | Customer-managed KMS key for S3 | Both buckets are encrypted at rest with AWS-managed AES256 keys; a KMS key adds monthly cost with no benefit for lab data | Encryption at rest, public access blocked, TLS-only policy on state |
+| CKV2_AWS_62 | Data and state S3 buckets | Event notifications | No service consumes bucket events | Revisit when a trigger is added |
+| CKV_AWS_18 | Data and state S3 buckets | Access logging | Would need a separate log bucket that fails the same check | CloudTrail data events planned once deployed |
+| CKV_AWS_144 | Data and state S3 buckets | Cross-region replication | Doubles storage cost for lab data | Versioning, and prevent_destroy on state |
+| CKV2_AWS_11 | VPC | Flow logs | No workloads run inside the VPC yet | Flow logs planned when a workload is added |
 | CKV_AWS_173 | Lambda function | Customer-managed KMS key for environment variables | Only variable is the non-secret bucket name | Encrypted at rest with an AWS-managed key |
 | CKV_AWS_117 | Lambda function | Run inside a VPC | Function only calls S3 and CloudWatch; a VPC would need a NAT Gateway or paid endpoints with no security gain | Least-privilege IAM role limits what it can reach |
 | CKV_AWS_116 | Lambda function | Dead-letter queue | No asynchronous trigger exists, so a DLQ would never receive events | Revisit when a trigger is added |
