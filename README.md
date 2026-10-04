@@ -91,7 +91,7 @@ All changes go through a branch and a pull request, then a squash merge into `ma
 - [x] Remote state bucket and S3 backend with native locking (code complete)
 - [x] Checkov scan triaged: findings fixed or documented in `EXCEPTIONS.md`
 - [x] GitHub Actions pipeline: SAST, SCA and IaC scanning that fail the build
-- [ ] Branch protection requiring all checks to pass
+- [x] Branch protection requiring all checks to pass
 - [ ] Compliance as code: CIS mapping, custom policy, drift detection
 - [ ] Deploy to AWS
 
