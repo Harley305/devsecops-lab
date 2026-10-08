@@ -35,7 +35,7 @@ jobs:
       - name: Install Checkov
         run: pip install checkov==3.3.20
       - name: Scan Terraform
-        run: checkov -d . --framework terraform --quiet --compact
+        run: checkov -d . --framework terraform --external-checks-dir policies--quiet --compact
 
   trivy:
     name: SCA and secrets (Trivy)
