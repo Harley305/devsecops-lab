@@ -3,6 +3,7 @@ module "network" {
 
   name = "devsecops-lab"
   azs  = ["us-west-2a", "us-west-2b"]
+  tags = local.tags
 }
 
 module "storage" {
