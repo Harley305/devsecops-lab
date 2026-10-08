@@ -1,0 +1,49 @@
+metadata:
+  id: "CKV2_LAB_1"
+  name: "Ensure AWS resources have Project, Environment and Owner tags"            
+  category: "CONVENTION"        
+  severity: "LOW"
+definition:
+  and:
+    - cond_type: attribute
+      resource_types:
+        - aws_cloudwatch_log_group
+        - aws_default_security_group
+        - aws_iam_openid_connect_provider
+        - aws_iam_role
+        - aws_internet_gateway
+        - aws_lambda_function
+        - aws_route_table
+        - aws_s3_bucket
+        - aws_subnet
+        - aws_vpc
+      attribute: tags.Project
+      operator: exists    
+    - cond_type: attribute
+      resource_types:
+        - aws_cloudwatch_log_group
+        - aws_default_security_group
+        - aws_iam_openid_connect_provider
+        - aws_iam_role
+        - aws_internet_gateway
+        - aws_lambda_function
+        - aws_route_table
+        - aws_s3_bucket
+        - aws_subnet
+        - aws_vpc
+      attribute: tags.Environment
+      operator: exists
+    - cond_type: attribute
+      resource_types:
+        - aws_cloudwatch_log_group
+        - aws_default_security_group
+        - aws_iam_openid_connect_provider
+        - aws_iam_role
+        - aws_internet_gateway
+        - aws_lambda_function
+        - aws_route_table
+        - aws_s3_bucket
+        - aws_subnet
+        - aws_vpc
+      attribute: tags.Owner
+      operator: exists  

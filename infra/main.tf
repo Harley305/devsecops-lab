@@ -9,6 +9,7 @@ module "storage" {
   source = "./modules/storage"
 
   name = "devsecops-lab"
+  tags = local.tags
 }
 
 module "app" {
@@ -25,4 +26,13 @@ module "github_oidc" {
 
   name        = "devsecops-lab"
   github_repo = "Harley305/devsecops-lab"
+}
+
+locals {
+  tags = {
+    Project     = "devsecops-lab"
+    Owner       = "chris"
+    Environment = "lab"
+    ManagedBy   = "terraform"
+  }
 }
