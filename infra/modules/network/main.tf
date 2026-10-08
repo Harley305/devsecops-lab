@@ -4,20 +4,20 @@ resource "aws_vpc" "this" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "${var.name}-vpc" }
+  tags = merge(var.tags, { Name = "${var.name}-vpc" })
 }
 
 # Lock down the default security group: no rules means no traffic in or out
 resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.this.id
 
-  tags = { Name = "${var.name}-default-sg-locked" }
+  tags = merge(var.tags, { Name = "${var.name}-default-sg-locked" })
 }
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
-  tags = { Name = "${var.name}-igw" }
+  tags = merge(var.tags, { Name = "${var.name}-igw" })
 }
 
 resource "aws_subnet" "public" {
@@ -28,7 +28,7 @@ resource "aws_subnet" "public" {
   availability_zone       = var.azs[count.index]
   map_public_ip_on_launch = false
 
-  tags = { Name = "${var.name}-public-${count.index + 1}", Tier = "public" }
+  tags = merge(var.tags, { Name = "${var.name}-public-${count.index + 1}", Tier = "public" })
 }
 
 resource "aws_subnet" "private" {
@@ -38,7 +38,7 @@ resource "aws_subnet" "private" {
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = var.azs[count.index]
 
-  tags = { Name = "${var.name}-private-${count.index + 1}", Tier = "private" }
+  tags = merge(var.tags, { Name = "${var.name}-private-${count.index + 1}", Tier = "private" })
 }
 
 # Public subnets route to the internet through the gateway
@@ -50,7 +50,7 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.this.id
   }
 
-  tags = { Name = "${var.name}-public-rt" }
+  tags = merge(var.tags, { Name = "${var.name}-public-rt" })
 }
 
 resource "aws_route_table_association" "public" {
@@ -64,7 +64,7 @@ resource "aws_route_table_association" "public" {
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
 
-  tags = { Name = "${var.name}-private-rt" }
+  tags = merge(var.tags, { Name = "${var.name}-private-rt" })
 }
 
 resource "aws_route_table_association" "private" {

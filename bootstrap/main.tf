@@ -11,16 +11,20 @@ terraform {
   }
 }
 
+locals {
+  tags = {
+    Project     = "devsecops-lab"
+    Owner       = "chris"
+    Environment = "lab"
+    ManagedBy   = "terraform-bootstrap"
+  }
+}
+
 provider "aws" {
   region = var.region
 
   default_tags {
-    tags = {
-      Project     = "devsecops-lab"
-      Owner       = "chris"
-      Environment = "lab"
-      ManagedBy   = "terraform-bootstrap"
-    }
+    tags = local.tags
   }
 }
 
@@ -30,6 +34,7 @@ resource "aws_s3_bucket" "state" {
   #checkov:skip=CKV_AWS_144:Cross-region replication doubles cost; state is versioned and protected by prevent_destroy
   #checkov:skip=CKV_AWS_145:Encrypted at rest with AWS-managed AES256 keys; a customer-managed KMS key adds monthly cost with no benefit for lab state
   bucket_prefix = "devsecops-lab-tfstate-"
+  tags          = local.tags
 
   # Losing state means Terraform forgets everything it built
   lifecycle {

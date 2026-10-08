@@ -20,12 +20,14 @@ data "aws_iam_policy_document" "assume" {
 resource "aws_iam_role" "app" {
   name               = "${var.name}-app"
   assume_role_policy = data.aws_iam_policy_document.assume.json
+  tags               = var.tags
 }
 
 resource "aws_cloudwatch_log_group" "app" {
   #checkov:skip=CKV_AWS_158:Logs use AWS-managed encryption by default; a customer-managed KMS key adds cost with no benefit for lab data
   name              = "/aws/lambda/${var.name}-app"
   retention_in_days = var.log_retention_days
+  tags              = var.tags
 }
 
 # Permissions: write its own logs, write objects under records/ only, and send traces
@@ -70,6 +72,7 @@ resource "aws_lambda_function" "app" {
   source_code_hash = data.archive_file.code.output_base64sha256
   timeout          = 10
   memory_size      = 128
+  tags             = var.tags
 
   tracing_config {
     mode = "Active"

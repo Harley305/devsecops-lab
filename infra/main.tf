@@ -3,12 +3,14 @@ module "network" {
 
   name = "devsecops-lab"
   azs  = ["us-west-2a", "us-west-2b"]
+  tags = local.tags
 }
 
 module "storage" {
   source = "./modules/storage"
 
   name = "devsecops-lab"
+  tags = local.tags
 }
 
 module "app" {
@@ -18,6 +20,7 @@ module "app" {
   source_dir  = "${path.root}/../app"
   bucket_name = module.storage.bucket_name
   bucket_arn  = module.storage.bucket_arn
+  tags        = local.tags
 }
 
 module "github_oidc" {
@@ -25,4 +28,14 @@ module "github_oidc" {
 
   name        = "devsecops-lab"
   github_repo = "Harley305/devsecops-lab"
+  tags        = local.tags
+}
+
+locals {
+  tags = {
+    Project     = "devsecops-lab"
+    Owner       = "chris"
+    Environment = "lab"
+    ManagedBy   = "terraform"
+  }
 }

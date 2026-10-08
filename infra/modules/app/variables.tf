@@ -23,3 +23,8 @@ variable "log_retention_days" {
   type        = number
   default     = 365
 }
+
+variable "tags" {
+  description = "Tags applied to every resource in this module"
+  type        = map(string)
+}
