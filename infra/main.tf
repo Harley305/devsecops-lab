@@ -19,6 +19,7 @@ module "app" {
   source_dir  = "${path.root}/../app"
   bucket_name = module.storage.bucket_name
   bucket_arn  = module.storage.bucket_arn
+  tags        = local.tags
 }
 
 module "github_oidc" {
