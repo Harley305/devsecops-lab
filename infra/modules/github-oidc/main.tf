@@ -2,6 +2,7 @@
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
+  tags           = var.tags
 }
 
 # PLAN role: any pull request in this repo, read-only
@@ -32,6 +33,7 @@ resource "aws_iam_role" "plan" {
   name                 = "${var.name}-gha-plan"
   assume_role_policy   = data.aws_iam_policy_document.plan_trust.json
   max_session_duration = 3600
+  tags                 = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "plan_readonly" {
@@ -67,6 +69,7 @@ resource "aws_iam_role" "apply" {
   name                 = "${var.name}-gha-apply"
   assume_role_policy   = data.aws_iam_policy_document.apply_trust.json
   max_session_duration = 3600
+  tags                 = var.tags
 }
 
 # Broad on purpose for now: Terraform must create IAM roles, Lambda, S3 and VPC resources.

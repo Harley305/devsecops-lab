@@ -27,6 +27,7 @@ module "github_oidc" {
 
   name        = "devsecops-lab"
   github_repo = "Harley305/devsecops-lab"
+  tags        = local.tags
 }
 
 locals {
