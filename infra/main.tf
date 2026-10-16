@@ -2,7 +2,7 @@ module "network" {
   source = "./modules/network"
 
   name = "devsecops-lab"
-  azs  = ["us-west-2a", "us-west-2b"]
+  azs  = ["us-east-2a", "us-east-2b"]
   tags = local.tags
 }
 
@@ -24,6 +24,7 @@ module "app" {
 }
 
 module "github_oidc" {
+  count  = var.enable_github_oidc ? 1 : 0
   source = "./modules/github-oidc"
 
   name        = "devsecops-lab"
