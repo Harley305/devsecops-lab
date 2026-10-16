@@ -24,6 +24,7 @@ module "app" {
 }
 
 module "github_oidc" {
+  count  = var.enable_github_oidc ? 1 : 0
   source = "./modules/github-oidc"
 
   name        = "devsecops-lab"
