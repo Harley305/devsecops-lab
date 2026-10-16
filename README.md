@@ -8,7 +8,7 @@ AWS infrastructure built with Terraform, secured by a GitHub Actions pipeline th
 
 ```mermaid
 flowchart LR
-  subgraph aws["AWS us-west-2"]
+  subgraph aws["AWS us-east-2"]
     subgraph vpc["VPC 10.0.0.0/16"]
       pub["Public subnets x2"]
       priv["Private subnets x2"]
@@ -43,7 +43,7 @@ flowchart LR
 ## Security decisions
 
 - **Least-privilege Lambda role.** The function can write to its own log group, upload objects under one prefix of one bucket, and send traces. Nothing else.
-- **Keyless CI.** GitHub Actions authenticates to AWS through OIDC with short-lived credentials. No AWS keys are stored anywhere. Trust policies only accept this repository, and the apply role only accepts the manually approved `prod` environment.
+- **Keyless CI.** GitHub Actions authenticates to AWS through OIDC with short-lived credentials. No AWS keys are stored anywhere. Trust policies only accept this repository, and the apply role only accepts the manually approved `prod` environment. In the current lab account, organization policy blocks creating OIDC identity providers, so the module is disabled with `enable_github_oidc = false` and deploys run from a workstation using short-lived `aws login` credentials. No long-lived keys are used either way.
 - **S3 locked down by default.** All four public access block settings on, ACLs disabled with `BucketOwnerEnforced`, versioning and encryption at rest.
 - **Hardened state.** The state bucket rejects any request not made over TLS, keeps old versions for 90 days, and is protected from deletion with `prevent_destroy`.
 - **Default security group locked.** No inbound or outbound rules.
