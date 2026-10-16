@@ -2,7 +2,7 @@
 
 AWS infrastructure built with Terraform, secured by a GitHub Actions pipeline that runs SAST, SCA and IaC scanning and blocks any change that fails a check.
 
-> **Status: in progress.** All infrastructure code is written, validated and security-scanned (Checkov: 106 passed, 0 failed, 7 active exceptions). Every pull request is scanned automatically by GitHub Actions.
+> **Status: deployed.** The lab runs in AWS us-east-2, built from code that is validated and security-scanned (Checkov: 106 passed, 0 failed, 7 active exceptions). Every pull request is scanned automatically by GitHub Actions, and drift between the code and live AWS is checked with `drift-check.sh`.
 
 ## Architecture
 
@@ -90,7 +90,22 @@ Every pull request runs four jobs in GitHub Actions. All actions are pinned to f
 ```bash
 ./check.sh                                                                           # terraform fmt, init and validate on every root
 checkov -d . --framework terraform --external-checks-dir policies --quiet --compact   # security scan with custom policies
+./drift-check.sh                                                                     # compare live AWS against the code (needs an aws login session)
 ```
+
+## Drift detection
+
+`drift-check.sh` runs `terraform plan -detailed-exitcode` against the live account and reports whether anything was changed outside Terraform. It runs read-only (`-lock=false`), so it never writes to the state bucket.
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | No drift: live infrastructure matches the code |
+| 2 | Drift: the script lists each changed resource and attribute |
+| 1 | Error: the plan could not run |
+
+Tested end to end: a tag added to the data bucket in the console was reported as drift (`- "ChangedBy" = "console" -> null`), `terraform apply` restored the coded state, and a rerun reported no drift.
+
+The check runs from a workstation for now, because the lab account blocks the OIDC provider that keyless CI needs. A scheduled CI version is planned.
 
 ## Workflow
 
@@ -104,8 +119,9 @@ All changes go through a branch and a pull request, then a squash merge into `ma
 - [x] Checkov scan triaged: findings fixed or documented in `EXCEPTIONS.md`
 - [x] GitHub Actions pipeline: SAST, SCA and IaC scanning that fail the build
 - [x] Branch protection requiring all checks to pass
-- [ ] Compliance as code: CIS mapping ✅, custom policy ✅, drift detection
-- [ ] Deploy to AWS
+- [x] Compliance as code: CIS mapping, custom policy, drift detection (local)
+- [x] Deploy to AWS (us-east-2)
+- [ ] Scheduled drift detection in CI
 
 ## Repo layout
 
@@ -125,6 +141,7 @@ infra/
     github-oidc/
 policies/             Custom Checkov policies
 check.sh              One-command Terraform checks
+drift-check.sh        Compare live AWS against the code
 CIS_MAPPING.md        CIS AWS Foundations Benchmark mapping
 EXCEPTIONS.md         Security exceptions register
 ```
