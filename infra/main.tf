@@ -2,7 +2,7 @@ module "network" {
   source = "./modules/network"
 
   name = "devsecops-lab"
-  azs  = ["us-west-2a", "us-west-2b"]
+  azs  = ["us-east-2a", "us-east-2b"]
   tags = local.tags
 }
 
