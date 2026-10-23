@@ -1,7 +1,16 @@
 # Creates the S3 bucket that stores Terraform state for infra/.
-# Applied once, by hand, with local state. Never managed by CI.
+# Applied by hand only. CI plans it read-only for drift; never applies.
 terraform {
   required_version = ">= 1.10"
+
+  # State lives in the bucket this stack creates, under its own key.
+  # Bucket supplied at init: terraform init -backend-config="bucket=<state_bucket_name>"
+  backend "s3" {
+    key          = "bootstrap/terraform.tfstate"
+    region       = "us-east-2"
+    encrypt      = true
+    use_lockfile = true
+  }
 
   required_providers {
     aws = {
