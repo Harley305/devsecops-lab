@@ -1,0 +1,100 @@
+name: drift-check
+
+on:
+  schedule:
+    - cron: "17 13 * * *" # daily 13:17 UTC (6:17 PDT / 5:17 PST)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: drift-check
+  cancel-in-progress: false
+
+env:
+  TF_DIR: infra
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    environment: drift
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false # wrapper swallows -detailed-exitcode
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.DRIFT_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DRIFT_AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.DRIFT_ROLE_ARN }}
+          role-session-name: drift-check
+          role-duration-seconds: 900
+          role-skip-session-tagging: true # trust policy doesn't grant sts:TagSession
+          aws-region: us-east-2
+
+      - name: Init
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        run: |
+          terraform -chdir="$TF_DIR" init -input=false -no-color \
+            -backend-config="bucket=$TF_STATE_BUCKET" > /dev/null
+
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          terraform -chdir="$TF_DIR" plan -detailed-exitcode -lock=false -input=false \
+            -no-color -out=tfplan > plan.log 2>&1
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 1 ]; then
+            echo "::error::terraform plan errored"
+            grep -E '^(Error|│)' plan.log | head -n 40 # errors only, never the full plan
+            exit 1
+          fi
+          echo "plan exit code: $code (0 = clean, 2 = drift)"
+
+      - name: Summarize drift
+        if: steps.plan.outputs.code == '2'
+        run: |
+          terraform -chdir="$TF_DIR" show -json tfplan \
+            | jq -r '.resource_changes[]? | select(.change.actions != ["no-op"])
+                     | "- `\(.address)`: \(.change.actions | join("/"))"' > summary.md
+          [ -s summary.md ] || echo "- No resource changes; only output values differ" > summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update drift issue
+        if: steps.plan.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          body=$(printf 'Drift detected: %s\n\n%s\n\nReproduce locally: `./drift-check.sh`' "$run_url" "$(cat summary.md)")
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label drift --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Infrastructure drift detected" --label drift --body "$body"
+          fi
+          exit 1 # red run = visible alert
+
+      - name: Close drift issue if clean
+        if: steps.plan.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label drift --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Clean plan in run $GITHUB_RUN_ID"
+          fi
