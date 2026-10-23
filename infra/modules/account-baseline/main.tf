@@ -59,3 +59,14 @@ resource "aws_iam_role_policy_attachment" "support" {
   role       = aws_iam_role.support.name
   policy_arn = "arn:aws:iam::aws:policy/AWSSupportAccess"
 }
+
+# Exclusive ownership: out-of-band policies on the support role show as drift.
+resource "aws_iam_role_policies_exclusive" "support" {
+  role_name    = aws_iam_role.support.name
+  policy_names = []
+}
+
+resource "aws_iam_role_policy_attachments_exclusive" "support" {
+  role_name   = aws_iam_role.support.name
+  policy_arns = [aws_iam_role_policy_attachment.support.policy_arn]
+}

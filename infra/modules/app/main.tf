@@ -86,3 +86,15 @@ resource "aws_lambda_function" "app" {
 
   depends_on = [aws_cloudwatch_log_group.app, aws_iam_role_policy.app]
 }
+
+# Exclusive ownership: any inline or managed policy added to this role outside
+# Terraform shows up as drift, and is removed on the next apply.
+resource "aws_iam_role_policies_exclusive" "app" {
+  role_name    = aws_iam_role.app.name
+  policy_names = [aws_iam_role_policy.app.name]
+}
+
+resource "aws_iam_role_policy_attachments_exclusive" "app" {
+  role_name   = aws_iam_role.app.name
+  policy_arns = []
+}
