@@ -24,7 +24,7 @@ resource "aws_iam_role" "app" {
 }
 
 resource "aws_cloudwatch_log_group" "app" {
-  #checkov:skip=CKV_AWS_158:Logs use AWS-managed encryption by default; a customer-managed KMS key adds cost with no benefit for lab data
+  #checkov:skip=CKV_AWS_158:Logs use AWS-managed encryption by default; a customer-managed KMS key adds cost with no benefit for lab data (EXCEPTIONS.md)
   name              = "/aws/lambda/${var.name}-app"
   retention_in_days = var.log_retention_days
   tags              = var.tags
@@ -59,11 +59,11 @@ resource "aws_iam_role_policy" "app" {
 }
 
 resource "aws_lambda_function" "app" {
-  #checkov:skip=CKV_AWS_117:Function only calls S3 and CloudWatch; VPC placement would require a NAT Gateway or paid endpoints with no security gain
-  #checkov:skip=CKV_AWS_116:No asynchronous trigger exists yet, so a dead-letter queue would never receive events; revisit when one is added
-  #checkov:skip=CKV_AWS_173:Only environment variable is the non-secret bucket name, already encrypted at rest with an AWS-managed key
-  #checkov:skip=CKV_AWS_272:Code signing requires AWS Signer setup; planned as a future supply-chain hardening upgrade
-  #checkov:skip=CKV_AWS_115:New accounts often have an account concurrency limit of 10 and AWS requires 10 unreserved, so reserving concurrency would fail apply; revisit after a quota increase
+  #checkov:skip=CKV_AWS_117:Function only calls S3 and CloudWatch; VPC placement would require a NAT Gateway or paid endpoints with no security gain (EXCEPTIONS.md)
+  #checkov:skip=CKV_AWS_116:No asynchronous trigger exists yet, so a dead-letter queue would never receive events; revisit when one is added (EXCEPTIONS.md)
+  #checkov:skip=CKV_AWS_173:Only environment variable is the non-secret bucket name, already encrypted at rest with an AWS-managed key (EXCEPTIONS.md)
+  #checkov:skip=CKV_AWS_272:Code signing requires AWS Signer setup; planned as a future supply-chain hardening upgrade (EXCEPTIONS.md)
+  #checkov:skip=CKV_AWS_115:New accounts often have an account concurrency limit of 10 and AWS requires 10 unreserved, so reserving concurrency would fail apply; revisit after a quota increase (EXCEPTIONS.md)
   function_name    = "${var.name}-app"
   role             = aws_iam_role.app.arn
   runtime          = "python3.13"

@@ -1,8 +1,8 @@
 resource "aws_s3_bucket" "data" {
-  #checkov:skip=CKV2_AWS_62:No service consumes bucket events yet; revisit when a trigger is added
-  #checkov:skip=CKV_AWS_18:Access logs would need a separate log bucket that fails the same check; CloudTrail data events planned once deployed
-  #checkov:skip=CKV_AWS_144:Cross-region replication doubles cost; lab data is versioned and non-critical
-  #checkov:skip=CKV_AWS_145:Encrypted at rest with AWS-managed AES256 keys; a customer-managed KMS key adds monthly cost with no benefit for lab data
+  #checkov:skip=CKV2_AWS_62:No service consumes bucket events yet; revisit when a trigger is added (EXCEPTIONS.md)
+  #checkov:skip=CKV_AWS_18:Access logs would need a separate log bucket that fails the same check; CloudTrail data events planned for SOC lab phase (EXCEPTIONS.md)
+  #checkov:skip=CKV_AWS_144:Cross-region replication doubles cost; lab data is versioned and non-critical (EXCEPTIONS.md)
+  #checkov:skip=CKV_AWS_145:Encrypted at rest with AWS-managed AES256 keys; a customer-managed KMS key adds monthly cost with no benefit for lab data (EXCEPTIONS.md)
   bucket_prefix = "${var.name}-data-"
   force_destroy = true # lab only: lets destroy remove a non-empty bucket
   tags          = var.tags
