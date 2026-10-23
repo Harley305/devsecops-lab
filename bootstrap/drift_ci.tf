@@ -5,8 +5,9 @@
 
 resource "aws_iam_user" "drift_ci" {
   #checkov:skip=CKV_AWS_273:SCP blocks OIDC providers; assume-only user is a documented exception (EXCEPTIONS.md#drift-ci)
-  name = "drift-check-ci"
-  path = "/ci/"
+  name                 = "drift-check-ci"
+  path                 = "/ci/"
+  permissions_boundary = aws_iam_policy.drift_ci_boundary.arn
   tags = {
     Project     = "devsecops-lab"
     Environment = "lab"
@@ -92,4 +93,28 @@ resource "aws_iam_role_policy" "drift_extra_reads" {
   name   = "drift-extra-reads"
   role   = aws_iam_role.drift_readonly.id
   policy = data.aws_iam_policy_document.drift_extra_reads.json
+}
+
+# Permissions boundary: caps drift-check-ci at assuming drift-readonly, even
+# if a policy is attached to the user later. Role ARN is built as a string
+# (not aws_iam_role.drift_readonly.arn) to avoid a user -> boundary -> role
+# -> trust -> user dependency cycle.
+data "aws_iam_policy_document" "drift_ci_boundary" {
+  statement {
+    sid       = "AssumeDriftReadonlyOnly"
+    actions   = ["sts:AssumeRole"]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.drift.account_id}:role/ci/drift-readonly"]
+  }
+}
+
+resource "aws_iam_policy" "drift_ci_boundary" {
+  name        = "drift-ci-boundary"
+  path        = "/ci/"
+  description = "Permissions boundary: drift-check-ci may only assume drift-readonly"
+  policy      = data.aws_iam_policy_document.drift_ci_boundary.json
+  tags = {
+    Project     = "devsecops-lab"
+    Environment = "lab"
+    Owner       = "chris"
+  }
 }
