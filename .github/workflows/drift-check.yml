@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TF_DIR: infra
+  TF_DIRS: infra bootstrap # stacks planned for drift, space-separated
   TF_IN_AUTOMATION: "true"
 
 jobs:
@@ -50,31 +50,42 @@ jobs:
         env:
           TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
         run: |
-          terraform -chdir="$TF_DIR" init -input=false -no-color \
-            -backend-config="bucket=$TF_STATE_BUCKET" > /dev/null
+          for d in $TF_DIRS; do
+            terraform -chdir="$d" init -input=false -no-color \
+              -backend-config="bucket=$TF_STATE_BUCKET" > /dev/null
+          done
 
       - name: Plan
         id: plan
         run: |
+          # Overall code: 1 if any stack errored, else 2 if any drifted, else 0
           set +e
-          terraform -chdir="$TF_DIR" plan -detailed-exitcode -lock=false -input=false \
-            -no-color -out=tfplan > plan.log 2>&1
-          code=$?
+          code=0
+          for d in $TF_DIRS; do
+            terraform -chdir="$d" plan -detailed-exitcode -lock=false -input=false \
+              -no-color -out=tfplan > "plan-$d.log" 2>&1
+            c=$?
+            echo "$d plan exit code: $c (0 = clean, 2 = drift)"
+            if [ "$c" -eq 1 ]; then
+              echo "::error::terraform plan errored in $d"
+              grep -E '^(Error|│)' "plan-$d.log" | head -n 40 # errors only, never the full plan
+              code=1
+            elif [ "$c" -eq 2 ] && [ "$code" -eq 0 ]; then
+              code=2
+            fi
+          done
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
-          if [ "$code" -eq 1 ]; then
-            echo "::error::terraform plan errored"
-            grep -E '^(Error|│)' plan.log | head -n 40 # errors only, never the full plan
-            exit 1
-          fi
-          echo "plan exit code: $code (0 = clean, 2 = drift)"
+          [ "$code" -ne 1 ]
 
       - name: Summarize drift
         if: steps.plan.outputs.code == '2'
         run: |
-          terraform -chdir="$TF_DIR" show -json tfplan \
-            | jq -r '.resource_changes[]? | select(.change.actions != ["no-op"])
-                     | "- `\(.address)`: \(.change.actions | join("/"))"' > summary.md
+          for d in $TF_DIRS; do
+            terraform -chdir="$d" show -json tfplan \
+              | jq -r --arg d "$d" '.resource_changes[]? | select(.change.actions != ["no-op"])
+                       | "- `\($d)/\(.address)`: \(.change.actions | join("/"))"'
+          done > summary.md
           [ -s summary.md ] || echo "- No resource changes; only output values differ" > summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -107,7 +118,7 @@ jobs:
         if: always() && (steps.plan.outputs.code == '0' || steps.plan.outputs.code == '2')
         run: |
           set +e
-          PLAN_FILE=tfplan ./policy-check.sh "$TF_DIR" | tee policy.log
+          PLAN_FILE=tfplan ./policy-check.sh $TF_DIRS | tee policy.log
           code=${PIPESTATUS[0]}
           {
             echo "### IAM policy validation"
