@@ -75,7 +75,7 @@ resource "aws_iam_role" "apply" {
 # Broad on purpose for now: Terraform must create IAM roles, Lambda, S3 and VPC resources.
 # Documented exception; the trust policy above is the main control. Tighten later.
 resource "aws_iam_role_policy_attachment" "apply_admin" {
-  #checkov:skip=CKV_AWS_274:Terraform must create IAM roles and other resources; compensated by repo-and-environment trust policy and manual approval; scoped policy planned
+  #checkov:skip=CKV_AWS_274:Terraform must create IAM roles and other resources; module disabled (count = 0) because SCP blocks OIDC; if enabled, trust limited to prod environment with manual approval (EXCEPTIONS.md)
   role       = aws_iam_role.apply.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
