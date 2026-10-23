@@ -33,6 +33,7 @@ jobs:
           terraform_wrapper: false # wrapper swallows -detailed-exitcode
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        id: creds
         with:
           aws-access-key-id: ${{ secrets.DRIFT_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.DRIFT_AWS_SECRET_ACCESS_KEY }}
@@ -115,3 +116,29 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$code"
+
+      - name: Check access key age
+        if: always() && steps.creds.outcome == 'success'
+        env:
+          KEY_ID: ${{ secrets.DRIFT_AWS_ACCESS_KEY_ID }}
+        run: |
+          created=$(aws iam list-access-keys --user-name drift-check-ci \
+            --query "AccessKeyMetadata[?AccessKeyId=='${KEY_ID}'].CreateDate" --output text)
+          if [ -z "$created" ] || [ "$created" = "None" ]; then
+            echo "::error::in-use access key not found on drift-check-ci"
+            exit 1
+          fi
+          created_s=$(date -u -d "$created" +%s)
+          age=$(( ( $(date -u +%s) - created_s ) / 86400 ))
+          due=$(date -u -d "@$(( created_s + 90 * 86400 ))" +%F)
+          {
+            echo "### Access key age"
+            echo "Key age: ${age} days · rotation due: ${due}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$age" -ge 90 ]; then
+            echo "::error::drift-check-ci key is ${age} days old (due ${due}); rotate per EXCEPTIONS.md#drift-ci"
+            exit 1
+          elif [ "$age" -ge 75 ]; then
+            echo "::warning::drift-check-ci key is ${age} days old; rotation due ${due}"
+          fi
+          echo "key age ${age} days, rotation due ${due}"

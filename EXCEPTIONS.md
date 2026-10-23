@@ -45,5 +45,6 @@ Each entry states why the check is skipped, the residual risk, what limits that 
   - `-lock=false`, so the job never writes state or lock files
   - Key created outside Terraform, so it's never in state
 - **Rotation (every 90 days):** create key 2 → update both secrets → dispatch run → deactivate key 1 → delete key 1
+- **Automated check:** daily drift run reports key age, warns from day 75, fails from day 90
 - **Key created:** 2026-10-23 · **Next rotation due:** 2027-01-21
 - **Exit criteria:** if the SCP is lifted, enable `github-oidc`, switch the workflow to OIDC role assumption, delete this user
