@@ -1,13 +1,10 @@
 # Read-only identity for scheduled drift detection in GitHub Actions.
-# Exception: OIDC blocked by AWS-managed SCP. See EXCEPTIONS.md#drift-ci
-
-resource "aws_iam_group" "drift_readers" {
-  name = "drift-readers"
-  path = "/ci/"
-}
+# Exception: OIDC providers and IAM groups are blocked by AWS-managed SCPs.
+# Pattern: key-only user (no identity policies) -> assumes drift-readonly role.
+# See EXCEPTIONS.md#drift-ci
 
 resource "aws_iam_user" "drift_ci" {
-  #checkov:skip=CKV_AWS_273:SCP blocks OIDC providers; read-only key is a documented exception (EXCEPTIONS.md#drift-ci)
+  #checkov:skip=CKV_AWS_273:SCP blocks OIDC providers; assume-only user is a documented exception (EXCEPTIONS.md#drift-ci)
   name = "drift-check-ci"
   path = "/ci/"
   tags = {
@@ -17,14 +14,34 @@ resource "aws_iam_user" "drift_ci" {
   }
 }
 
-resource "aws_iam_user_group_membership" "drift_ci" {
-  user   = aws_iam_user.drift_ci.name
-  groups = [aws_iam_group.drift_readers.name]
+# Trust only this exact user. Naming the user ARN (not the account root)
+# means the user needs no sts:AssumeRole identity policy.
+data "aws_iam_policy_document" "drift_trust" {
+  statement {
+    sid     = "AssumeFromDriftUser"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_user.drift_ci.arn]
+    }
+  }
+}
+
+resource "aws_iam_role" "drift_readonly" {
+  name                 = "drift-readonly"
+  path                 = "/ci/"
+  assume_role_policy   = data.aws_iam_policy_document.drift_trust.json
+  max_session_duration = 3600
+  tags = {
+    Project     = "devsecops-lab"
+    Environment = "ci"
+    Owner       = "Harley305"
+  }
 }
 
 # Config/metadata reads only. Unlike ReadOnlyAccess, it can't read object data.
-resource "aws_iam_group_policy_attachment" "security_audit" {
-  group      = aws_iam_group.drift_readers.name
+resource "aws_iam_role_policy_attachment" "security_audit" {
+  role       = aws_iam_role.drift_readonly.name
   policy_arn = "arn:aws:iam::aws:policy/SecurityAudit"
 }
 
@@ -41,8 +58,8 @@ data "aws_iam_policy_document" "state_read" {
   }
 }
 
-resource "aws_iam_group_policy" "state_read" {
+resource "aws_iam_role_policy" "state_read" {
   name   = "drift-state-read"
-  group  = aws_iam_group.drift_readers.name
+  role   = aws_iam_role.drift_readonly.id
   policy = data.aws_iam_policy_document.state_read.json
 }

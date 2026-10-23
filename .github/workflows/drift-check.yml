@@ -36,6 +36,10 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.DRIFT_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.DRIFT_AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.DRIFT_ROLE_ARN }}
+          role-session-name: drift-check
+          role-duration-seconds: 900
+          role-skip-session-tagging: true # trust policy doesn't grant sts:TagSession
           aws-region: us-east-2
 
       - name: Init
