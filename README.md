@@ -93,6 +93,7 @@ Every pull request runs four jobs in GitHub Actions. All actions are pinned to f
 ./check.sh                                                                           # terraform fmt, init and validate on every root
 checkov -d . --framework terraform --external-checks-dir policies --quiet --compact   # security scan with custom policies
 ./drift-check.sh                                                                     # compare live AWS against the code (needs an aws login session)
+./policy-check.sh infra bootstrap                                                    # validate every IAM and bucket policy with IAM Access Analyzer (needs an aws login session)
 ```
 
 ## Drift detection
@@ -109,7 +110,19 @@ checkov -d . --framework terraform --external-checks-dir policies --quiet --comp
 
 Tested end to end: a tag added to the data bucket in the console was reported as drift (`- "ChangedBy" = "console" -> null`), `terraform apply` restored the coded state, and a rerun reported no drift.
 
-The check runs from a workstation for now, because the lab account blocks the OIDC provider that keyless CI needs. A scheduled CI version is planned.
+Without OIDC (blocked by the account's SCP), the scheduled job uses a key that can only assume a read-only role. See [EXCEPTIONS.md](EXCEPTIONS.md).
+
+## Policy validation
+
+`policy-check.sh` pulls every IAM policy, role trust policy and S3 bucket policy out of a `terraform plan` and runs each one through IAM Access Analyzer's `ValidatePolicy`, which is free. `ERROR` and `SECURITY_WARNING` findings fail the check; `WARNING` and `SUGGESTION` findings are reported. Policies that aren't known until apply (for example, on a brand-new resource) are skipped and get checked on the next run.
+
+It runs before every pull request from a workstation (`./policy-check.sh infra bootstrap`) and daily in CI as the last step of the drift workflow, against the same plan. This is the compensating control for CIS 1.19: the account's SCP blocks creating an Access Analyzer, but allows policy checks. The paid custom checks (`CheckNoPublicAccess`, `CheckAccessNotGranted`) are deliberately left out to keep the lab at $0.
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | No blocking findings |
+| 2 | At least one `ERROR` or `SECURITY_WARNING` |
+| 1 | Error: a plan or API call failed |
 
 ## Workflow
 
@@ -125,7 +138,8 @@ All changes go through a branch and a pull request, then a squash merge into `ma
 - [x] Branch protection requiring all checks to pass
 - [x] Compliance as code: CIS mapping, custom policy, drift detection (local and scheduled daily in CI)
 - [x] Deploy to AWS (us-east-2)
-- [ ] Scheduled drift detection in CI
+- [x] Scheduled drift detection in CI
+- [x] IAM Access Analyzer policy validation (compensating control for CIS 1.19)
 
 ## Repo layout
 
@@ -146,6 +160,7 @@ infra/
 policies/             Custom Checkov policies
 check.sh              One-command Terraform checks
 drift-check.sh        Compare live AWS against the code
+policy-check.sh       Validate IAM and bucket policies with IAM Access Analyzer
 CIS_MAPPING.md        CIS AWS Foundations Benchmark mapping
 EXCEPTIONS.md         Security exceptions register
 ```

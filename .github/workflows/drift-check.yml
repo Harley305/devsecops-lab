@@ -101,3 +101,17 @@ jobs:
           if [ -n "$n" ]; then
             gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Clean plan in run $GITHUB_RUN_ID"
           fi
+
+      - name: Validate IAM policies (Access Analyzer)
+        if: always() && (steps.plan.outputs.code == '0' || steps.plan.outputs.code == '2')
+        run: |
+          set +e
+          PLAN_FILE=tfplan ./policy-check.sh "$TF_DIR" | tee policy.log
+          code=${PIPESTATUS[0]}
+          {
+            echo "### IAM policy validation"
+            echo '```'
+            grep -E '^  (OK|SKIP|FAIL|NOTE) |^Checked ' policy.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$code"
