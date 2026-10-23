@@ -62,3 +62,31 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
     }
   }
 }
+
+# CIS 2.1.1 (S3.5). Refuse any request that isn't encrypted in transit (HTTPS only)
+data "aws_iam_policy_document" "data_tls_only" {
+  statement {
+    sid       = "DenyInsecureTransport"
+    effect    = "Deny"
+    actions   = ["s3:*"]
+    resources = [aws_s3_bucket.data.arn, "${aws_s3_bucket.data.arn}/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "data" {
+  bucket = aws_s3_bucket.data.id
+  policy = data.aws_iam_policy_document.data_tls_only.json
+
+  depends_on = [aws_s3_bucket_public_access_block.data]
+}
