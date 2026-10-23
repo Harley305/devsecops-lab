@@ -129,6 +129,8 @@ checkov -d . --framework terraform --external-checks-dir policies --quiet --comp
 Tested end to end, locally and in CI:
 - Locally: a tag added to the data bucket in the console was reported as drift (`- "ChangedBy" = "console" -> null`), `terraform apply` restored the coded state, and a rerun reported no drift.
 - In CI: a tag added to the Lambda function with the CLI turned the scheduled run red and opened issue #12 listing `module.app.aws_lambda_function.app: update`. After `terraform apply`, the next run was green and closed the issue automatically.
+- In CI: an `AWSDenyAll` policy attached by hand to the support role was reported as `module.account_baseline.aws_iam_role_policy_attachments_exclusive.support: update` (issue #23). Every IAM role and user declares its complete policy list, so out-of-band attachments show as drift.
+- In CI: a tag added to `drift-readonly` was reported as `bootstrap/aws_iam_role.drift_readonly: update`, confirming the drift identity itself is watched.
 
 Without OIDC (blocked by the account's SCP), the scheduled job uses a key that can only assume a read-only role. See [EXCEPTIONS.md](EXCEPTIONS.md).
 
@@ -166,9 +168,9 @@ All changes go through a branch and a pull request, then a squash merge into `ma
 ```text
 app/                  Lambda source code
 .github/workflows/
-  ci.yml              Pull request checks: Terraform, Checkov, Trivy, Semgrep
+  ci.yml              Pull request checks: Terraform, Checkov, Trivy, Semgrep, Gitleaks
   drift-check.yml     Daily drift detection and policy validation
-bootstrap/            Terraform state bucket, applied once
+bootstrap/            State bucket and drift identity; state in S3, applied by hand
   drift_ci.tf         Read-only identity for the drift workflow
 infra/
   main.tf             Wires the modules together
