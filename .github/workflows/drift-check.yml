@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: write # keepalive step re-enables this workflow so the schedule never lapses
 
 concurrency:
   group: drift-check
@@ -153,3 +154,15 @@ jobs:
             echo "::warning::drift-check-ci key is ${age} days old; rotation due ${due}"
           fi
           echo "key age ${age} days, rotation due ${due}"
+
+      # GitHub disables scheduled workflows in public repos after 60 days with no
+      # repository activity. Re-enabling this workflow through the API on every
+      # scheduled run keeps the schedule alive without dummy commits. Best-effort:
+      # it never fails the run.
+      - name: Keep schedule alive
+        if: always() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/drift-check.yml/enable" \
+            || echo "::warning::could not re-enable drift-check schedule"
