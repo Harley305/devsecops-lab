@@ -51,9 +51,11 @@ Each entry states why the check is skipped, the residual risk, what limits that 
 
 ## Considered and not adopted
 
-Hardening options reviewed for the state bucket and deliberately not enabled.
+Hardening and detection options reviewed and deliberately not adopted.
 
 | Control | Why not adopted | Risk | Compensating control | Revisit when |
 | --- | --- | --- | --- | --- |
-| S3 Object Lock (Compliance mode) on state bucket | Object Lock can't be disabled once enabled, and compliance-mode retention can't be shortened or removed by anyone, including root; this blocks bucket teardown in a lab and conflicts with avoiding irreversible account settings | Medium. A principal with `s3:DeleteObjectVersion` on the state bucket could purge old state versions | No CI identity can write or delete in the state bucket (drift role reads one object only); versioning; `prevent_destroy`; deletes require admin credentials | State must survive a compromised admin |
+| S3 Object Lock (Compliance mode) on state bucket | Object Lock can't be disabled once enabled, and compliance-mode retention can't be shortened or removed by anyone, including root; this blocks bucket teardown in a lab and conflicts with avoiding irreversible account settings | Medium. A principal with `s3:DeleteObjectVersion` on the state bucket could purge old state versions | No CI identity can write or delete in the state bucket (drift role reads the two state objects only); versioning; `prevent_destroy`; deletes require admin credentials | State must survive a compromised admin |
 | MFA Delete on state bucket | Can only be enabled by the root user with root MFA through the CLI or API; Terraform can't manage it, and it would require root access keys, which CIS 1.4 prohibits | Low. Version deletes and versioning suspension don't require MFA | Same as above | Never via root keys; use Object Lock governance mode if deletion protection becomes a requirement |
+| Real-time drift detection | Needs a CloudTrail and EventBridge pipeline, which is paid and belongs to the SOC lab phase | Low. A change made right after the 13:17 UTC run can go unseen for up to about 24 hours | Daily scheduled run plus on-demand runs; IAM roles and users declare their complete policy lists, so additions show as drift | SOC lab phase |
+| Detection of unmanaged resources | `terraform plan` only compares resources already in state; finding resources created outside Terraform needs AWS Config or CloudTrail analysis | Medium. A new IAM user, key or resource created by hand is not reported | Additions to managed IAM identities are caught; admin access is limited to the owner | SOC lab phase |

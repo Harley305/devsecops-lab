@@ -98,8 +98,8 @@ A second workflow, `drift-check.yml`, runs daily at 13:17 UTC and on demand:
 
 | Step | What it does |
 | --- | --- |
-| Credentials | Key that can only assume `drift-readonly` (15-minute session); secrets scoped to the `drift` environment, protected branches only |
-| Plan | `terraform plan -detailed-exitcode -lock=false` against live AWS |
+| Credentials | Key that can only assume `drift-readonly` (workflow requests a 15-minute session; role maximum 1 hour); secrets scoped to the `drift` environment, protected branches only |
+| Plan | `terraform plan -detailed-exitcode -lock=false` for each stack (`infra` and `bootstrap`) against live AWS |
 | Drift issue | Opens or updates a `drift` issue listing only resource addresses; closes it on the next clean run |
 | Policy check | `policy-check.sh` on the same plan |
 
@@ -116,9 +116,9 @@ checkov -d . --framework terraform --external-checks-dir policies --quiet --comp
 
 ## Drift detection
 
-`drift-check.sh` runs `terraform plan -detailed-exitcode` against the live account and reports whether anything was changed outside Terraform. It runs read-only (`-lock=false`), so it never writes to the state bucket.
+`drift-check.sh` runs `terraform plan -detailed-exitcode` for both stacks (`infra` and `bootstrap`) against the live account and reports whether anything was changed outside Terraform. It runs read-only (`-lock=false`), so it never writes to the state bucket.
 
-`.github/workflows/drift-check.yml` runs the same plan every day at 13:17 UTC (and on demand). On drift it opens or updates an issue labeled `drift` listing only the affected resource addresses, and it closes that issue on the next clean run.
+`.github/workflows/drift-check.yml` runs the same plan every day at 13:17 UTC (and on demand). On drift it opens or updates an issue labeled `drift` listing only the affected resource addresses (prefixed with their stack), and it closes that issue on the next clean run.
 
 | Exit code | Meaning |
 | --- | --- |
