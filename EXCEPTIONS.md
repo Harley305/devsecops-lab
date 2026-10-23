@@ -2,8 +2,8 @@
 
 Every Checkov finding in this repo is either fixed or listed here with a reason. Each exception is also marked in the code with a `#checkov:skip` comment next to the resource it applies to.
 
-**Last reviewed:** 2026-10-02
-**Scan result:** 119 passed, 0 failed, 16 skipped (Checkov 3.3.20 in CI)
+**Last reviewed:** 2026-10-23
+**Scan result:** 223 passed, 0 failed, 17 skipped (Checkov 3.3.20 with custom policies)
 
 ## Fixed
 
@@ -32,12 +32,13 @@ Every Checkov finding in this repo is either fixed or listed here with a reason.
 
 ## drift-ci: long-lived IAM access key for scheduled drift detection
 
-- **Checks/controls:** CKV_AWS_273 (skipped on `aws_iam_user.drift_ci`); CIS 1.14 (rotate keys ≤90 days) applies
+- **Checks/controls:** CKV_AWS_273 (skipped on `aws_iam_user.drift_ci`); CIS 1.13 (rotate keys every 90 days) applies
 - **Why:** AWS-managed SCPs deny `iam:*Provider*` (no GitHub OIDC) and `iam:CreateGroup`
-- **Scope:** user `drift-check-ci` has no identity policies; its key can only assume role `drift-readonly` (trust policy names that user ARN only). Role carries `SecurityAudit` + `s3:ListBucket` on the state bucket + `s3:GetObject` on `lab/terraform.tfstate`. 15-minute sessions, no write permissions anywhere.
+- **Scope:** user `drift-check-ci` has no identity policies; its key can only assume role `drift-readonly` (trust policy names that user ARN only). Role carries `SecurityAudit` + `s3:ListBucket` on the state bucket + `s3:GetObject` on `lab/terraform.tfstate` + `drift-extra-reads` (`lambda:GetFunction`, `GetFunctionCodeSigningConfig`, `ListVersionsByFunction` on `devsecops-lab-*` functions only, because SecurityAudit omits them). 15-minute sessions, no write permissions anywhere.
 - **Compensating controls:**
   - Secrets scoped to GitHub Environment `drift`, deployable from protected branches only
   - Plan output redacted to resource addresses in public logs
+  - Account ID masked (`::add-mask::`) in every job log
   - `-lock=false`, so the job never writes state or lock files
   - Key created outside Terraform, so it's never in state
 - **Rotation (every 90 days):** create key 2 → update both secrets → dispatch run → deactivate key 1 → delete key 1

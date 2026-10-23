@@ -74,3 +74,50 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+
+# CIS 5.2 (EC2.21). Every subnet uses the default NACL, which allows all
+# inbound traffic until it is managed. Deny SSH and RDP from anywhere first
+# (lowest rule numbers are evaluated first), then allow everything else, so
+# the security groups stay the main traffic control.
+resource "aws_default_network_acl" "default" {
+  default_network_acl_id = aws_vpc.this.default_network_acl_id
+  subnet_ids             = concat(aws_subnet.public[*].id, aws_subnet.private[*].id)
+
+  ingress {
+    rule_no    = 10
+    action     = "deny"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 22
+    to_port    = 22
+  }
+
+  ingress {
+    rule_no    = 20
+    action     = "deny"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 3389
+    to_port    = 3389
+  }
+
+  ingress {
+    rule_no    = 100
+    action     = "allow"
+    protocol   = "-1"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
+  }
+
+  egress {
+    rule_no    = 100
+    action     = "allow"
+    protocol   = "-1"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
+  }
+
+  tags = merge(var.tags, { Name = "${var.name}-default-nacl" })
+}

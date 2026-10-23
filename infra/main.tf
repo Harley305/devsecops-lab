@@ -23,6 +23,13 @@ module "app" {
   tags        = local.tags
 }
 
+module "account_baseline" {
+  source = "./modules/account-baseline"
+
+  name = "devsecops-lab"
+  tags = local.tags
+}
+
 module "github_oidc" {
   count  = var.enable_github_oidc ? 1 : 0
   source = "./modules/github-oidc"
