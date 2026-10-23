@@ -118,3 +118,25 @@ resource "aws_iam_policy" "drift_ci_boundary" {
     Owner       = "chris"
   }
 }
+
+# Exclusive ownership: anything attached to drift-readonly or drift-check-ci
+# outside Terraform shows as drift, and is removed on the next apply.
+resource "aws_iam_role_policies_exclusive" "drift_readonly" {
+  role_name    = aws_iam_role.drift_readonly.name
+  policy_names = [aws_iam_role_policy.state_read.name, aws_iam_role_policy.drift_extra_reads.name]
+}
+
+resource "aws_iam_role_policy_attachments_exclusive" "drift_readonly" {
+  role_name   = aws_iam_role.drift_readonly.name
+  policy_arns = [aws_iam_role_policy_attachment.security_audit.policy_arn]
+}
+
+resource "aws_iam_user_policies_exclusive" "drift_ci" {
+  user_name    = aws_iam_user.drift_ci.name
+  policy_names = []
+}
+
+resource "aws_iam_user_policy_attachments_exclusive" "drift_ci" {
+  user_name   = aws_iam_user.drift_ci.name
+  policy_arns = []
+}
