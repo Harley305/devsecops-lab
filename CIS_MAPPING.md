@@ -51,7 +51,7 @@ Every requirement has one of these statuses:
 | --- | --- | --- | --- | --- |
 | 3.1 | Multi-Region CloudTrail with read and write management events | CloudTrail.1 | 💲 | Deferred. CloudTrail Event History (90 days, free) covers management events. Trail planned for the SOC lab phase |
 | 3.2 | CloudTrail log file validation | CloudTrail.4 | ➖ | Applies once a trail exists |
-| 3.3 | AWS Config enabled | Config.1 | 💲 | Billed per configuration item; drift detection via `drift-check.sh` (`terraform plan -detailed-exitcode`) instead |
+| 3.3 | AWS Config enabled | Config.1 | 💲 | Billed per configuration item; drift detection instead: `terraform plan -detailed-exitcode` runs daily in CI (`drift-check.yml`) and locally (`drift-check.sh`) |
 | 3.4 | Access logging on the CloudTrail bucket | CloudTrail.7 | ➖ | Applies once a trail exists |
 | 3.5 | CloudTrail encrypted with KMS | CloudTrail.2 | ➖ | Applies once a trail exists. Customer-managed keys bill monthly |
 | 3.6 | KMS key rotation enabled | KMS.4 | ➖ | No customer-managed KMS keys; all encryption uses AWS-managed keys |
