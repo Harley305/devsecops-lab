@@ -188,6 +188,9 @@ policies/             Custom Checkov policies
 check.sh              One-command Terraform checks
 drift-check.sh        Compare live AWS against the code
 policy-check.sh       Validate IAM and bucket policies with IAM Access Analyzer
+skip-check.sh         Fail if a Checkov skip isn't registered in EXCEPTIONS.md
 CIS_MAPPING.md        CIS AWS Foundations Benchmark mapping
 EXCEPTIONS.md         Security exceptions register
+SECURITY.md           Vulnerability reporting policy
+AUDIT.md              Adversarial review prompt and review log
 ```
