@@ -29,3 +29,17 @@ Every Checkov finding in this repo is either fixed or listed here with a reason.
 | CKV_AWS_115 | Lambda function | Reserved concurrency limit | New accounts often have an account limit of 10 and AWS requires 10 unreserved, so this would fail apply | Revisit after a quota increase |
 | CKV_AWS_272 | Lambda function | Code signing | Requires AWS Signer setup | Planned supply-chain hardening upgrade |
 | CKV_AWS_274 | GitHub Actions apply role | No `AdministratorAccess` | Terraform must create IAM roles and other resources | Trust policy limited to this repo's `prod` environment, with manual approval; scoped policy planned |
+
+## drift-ci: long-lived IAM access key for scheduled drift detection
+
+- **Checks/controls:** CKV_AWS_273 (skipped on `aws_iam_user.drift_ci`); CIS 1.14 (rotate keys ≤90 days) applies
+- **Why:** AWS-managed SCP denies `iam:*Provider*`, so GitHub OIDC is unavailable (`enable_github_oidc = false`)
+- **Scope:** user `drift-check-ci` → group `drift-readers` → `SecurityAudit` + `s3:ListBucket` on the state bucket + `s3:GetObject` on `lab/terraform.tfstate` only. No write permissions anywhere.
+- **Compensating controls:**
+  - Secrets scoped to GitHub Environment `drift`, deployable from protected branches only
+  - Plan output redacted to resource addresses in public logs
+  - `-lock=false`, so the job never writes state or lock files
+  - Key created outside Terraform, so it's never in state
+- **Rotation (every 90 days):** create key 2 → update both secrets → dispatch run → deactivate key 1 → delete key 1
+- **Key created:** 2026-10-23 · **Next rotation due:** 2027-01-21
+- **Exit criteria:** if the SCP is lifted, enable `github-oidc`, switch the workflow to role assumption, delete this user
