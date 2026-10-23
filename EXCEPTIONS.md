@@ -48,3 +48,12 @@ Each entry states why the check is skipped, the residual risk, what limits that 
 - **Automated check:** daily drift run reports key age, warns from day 75, fails from day 90
 - **Key created:** 2026-10-23 · **Next rotation due:** 2027-01-21
 - **Exit criteria:** if the SCP is lifted, enable `github-oidc`, switch the workflow to OIDC role assumption, delete this user
+
+## Considered and not adopted
+
+Hardening options reviewed for the state bucket and deliberately not enabled.
+
+| Control | Why not adopted | Risk | Compensating control | Revisit when |
+| --- | --- | --- | --- | --- |
+| S3 Object Lock (Compliance mode) on state bucket | Object Lock can't be disabled once enabled, and compliance-mode retention can't be shortened or removed by anyone, including root; this blocks bucket teardown in a lab and conflicts with avoiding irreversible account settings | Medium. A principal with `s3:DeleteObjectVersion` on the state bucket could purge old state versions | No CI identity can write or delete in the state bucket (drift role reads one object only); versioning; `prevent_destroy`; deletes require admin credentials | State must survive a compromised admin |
+| MFA Delete on state bucket | Can only be enabled by the root user with root MFA through the CLI or API; Terraform can't manage it, and it would require root access keys, which CIS 1.4 prohibits | Low. Version deletes and versioning suspension don't require MFA | Same as above | Never via root keys; use Object Lock governance mode if deletion protection becomes a requirement |

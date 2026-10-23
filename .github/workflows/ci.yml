@@ -60,7 +60,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install Semgrep
-        run: pip install semgrep
+        run: pip install semgrep==1.182.1
       - name: Scan Python code
         run: semgrep scan --config p/python --error app/
 
