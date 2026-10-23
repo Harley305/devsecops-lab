@@ -63,3 +63,25 @@ resource "aws_iam_role_policy" "state_read" {
   role   = aws_iam_role.drift_readonly.id
   policy = data.aws_iam_policy_document.state_read.json
 }
+
+# Terraform refresh needs Lambda reads that SecurityAudit omits (GetFunction
+# returns a code-download URL). Scoped to this project's functions only.
+data "aws_caller_identity" "drift" {}
+
+data "aws_iam_policy_document" "drift_extra_reads" {
+  statement {
+    sid = "LambdaRefreshReads"
+    actions = [
+      "lambda:GetFunction",
+      "lambda:GetFunctionCodeSigningConfig",
+      "lambda:ListVersionsByFunction",
+    ]
+    resources = ["arn:aws:lambda:us-east-2:${data.aws_caller_identity.drift.account_id}:function:devsecops-lab-*"]
+  }
+}
+
+resource "aws_iam_role_policy" "drift_extra_reads" {
+  name   = "drift-extra-reads"
+  role   = aws_iam_role.drift_readonly.id
+  policy = data.aws_iam_policy_document.drift_extra_reads.json
+}

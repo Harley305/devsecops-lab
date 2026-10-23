@@ -42,6 +42,9 @@ jobs:
           role-skip-session-tagging: true # trust policy doesn't grant sts:TagSession
           aws-region: us-east-2
 
+      - name: Mask account ID
+        run: echo "::add-mask::$(aws sts get-caller-identity --query Account --output text)"
+
       - name: Init
         env:
           TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
