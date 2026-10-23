@@ -78,6 +78,14 @@ data "aws_iam_policy_document" "drift_extra_reads" {
     ]
     resources = ["arn:aws:lambda:us-east-2:${data.aws_caller_identity.drift.account_id}:function:devsecops-lab-*"]
   }
+
+  # policy-check.sh: free IAM Access Analyzer policy validation. ValidatePolicy
+  # only inspects the document it's given and has no resource-level permissions.
+  statement {
+    sid       = "AccessAnalyzerValidatePolicy"
+    actions   = ["access-analyzer:ValidatePolicy"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "drift_extra_reads" {

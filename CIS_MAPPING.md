@@ -32,7 +32,7 @@ Every requirement has one of these statuses:
 | 1.14 | No policies attached directly to IAM users | IAM.2 | ✅ | All permissions are on roles (`app`, `github-oidc`, `account-baseline`, `drift-readonly`). The only IAM user, `drift-check-ci`, has no policies; it can only assume `drift-readonly` |
 | 1.16 | Support role exists for incident management | IAM.18 | ✅ | `devsecops-lab-support` role with `AWSSupportAccess`, trusted only by this account |
 | 1.18 | Remove expired IAM SSL/TLS certificates | IAM.26 | ➖ | No IAM server certificates |
-| 1.19 | IAM Access Analyzer enabled | IAM.28 | 🚫 | The Free plan SCP allows only Access Analyzer policy checks, not creating an analyzer |
+| 1.19 | IAM Access Analyzer enabled | IAM.28 | 🚫 | The Free plan SCP allows only Access Analyzer policy checks, not creating an analyzer. Compensating control: `policy-check.sh` runs `ValidatePolicy` on every IAM, trust and bucket policy before each PR and daily in CI |
 | 1.21 | No `AWSCloudShellFullAccess` attachments | IAM.27 | ✅ | Not attached to any role in this code |
 
 ## Section 2: Storage
@@ -88,7 +88,7 @@ CIS v5.0.0 lists metric filters and alarms (root usage, IAM policy changes, Clou
 
 All six free fixes were added in one pull request (2026-10-23): password policy (1.7, 1.8), account-level S3 Block Public Access (2.1.4), EBS default encryption (5.1.1), support role (1.16), default NACL denying 22 and 3389 (5.2), and a TLS-only policy on the `storage` bucket (2.1.1). The account-wide settings live in `infra/modules/account-baseline` and are covered by the scheduled drift check.
 
-Removed because the account blocks them: security contact (CIS 1.2) and IAM Access Analyzer (CIS 1.19). Access Analyzer policy checks are planned as a compensating control for 1.19.
+Removed because the account blocks them: security contact (CIS 1.2) and IAM Access Analyzer (CIS 1.19). Access Analyzer policy validation (`policy-check.sh`) is now in place as the compensating control for 1.19.
 
 ## References
 
