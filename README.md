@@ -9,21 +9,25 @@ AWS infrastructure built with Terraform, secured by a GitHub Actions pipeline th
 ```mermaid
 flowchart LR
   subgraph aws["AWS us-east-2"]
-    subgraph vpc["VPC 10.0.0.0/16"]
+    subgraph vpc["VPC 10.0.0.0/16, default NACL denies SSH and RDP"]
       pub["Public subnets x2"]
       priv["Private subnets x2"]
     end
     igw["Internet gateway"] --- pub
     role["IAM role: least privilege"]
     fn["Lambda function: Python 3.13"]
-    s3[("S3 bucket: encrypted, versioned, private")]
+    s3[("S3 bucket: encrypted, versioned, private, TLS-only")]
     logs["CloudWatch logs: 1-year retention"]
     xray["X-Ray tracing"]
+    base["Account baseline: password policy, account S3 Block Public Access, EBS encryption, support role"]
+    ro["drift-readonly role: SecurityAudit + state read"]
   end
-  gha["GitHub Actions"] -->|"OIDC, no stored keys"| ci["CI roles: plan read-only, apply prod-only"]
-  ci -.->|"Terraform"| aws
+  dev["Workstation: aws login, 12-hour credentials"] -->|"terraform apply"| aws
   state[("Terraform state: TLS-only, versioned, locked")]
-  ci -.-> state
+  dev -.-> state
+  gha["GitHub Actions: daily drift and policy check"] -->|"key can only assume"| ro
+  ro -.->|"plan, read-only"| state
+  oidc["GitHub OIDC roles: disabled, SCP blocks OIDC providers"] -.- gha
   role -->|"assumed by"| fn
   fn -->|"PutObject to records/ only"| s3
   fn -->|"writes"| logs
@@ -39,15 +43,18 @@ flowchart LR
 | `app` | Python Lambda function, least-privilege IAM role, CloudWatch log group, X-Ray tracing |
 | `account-baseline` | Account-wide CIS settings: IAM password policy, account-level S3 Block Public Access, EBS default encryption, AWS Support role |
 | `github-oidc` | Keyless GitHub Actions login: read-only plan role for pull requests, apply role limited to the `prod` environment |
-| `bootstrap` | Hardened Terraform state bucket with S3 native locking |
+| `bootstrap` | Hardened Terraform state bucket with S3 native locking, plus the read-only drift-check identity (`drift-check-ci` user and `drift-readonly` role) |
 
 ## Security decisions
 
 - **Least-privilege Lambda role.** The function can write to its own log group, upload objects under one prefix of one bucket, and send traces. Nothing else.
-- **Keyless CI.** GitHub Actions authenticates to AWS through OIDC with short-lived credentials. No AWS keys are stored anywhere. Trust policies only accept this repository, and the apply role only accepts the manually approved `prod` environment. In the current lab account, organization policy blocks creating OIDC identity providers, so the module is disabled with `enable_github_oidc = false` and deploys run from a workstation using short-lived `aws login` credentials. The one exception is a read-only drift-check key, documented in [EXCEPTIONS.md](EXCEPTIONS.md): it can only assume a read-only role, and it rotates every 90 days.
+- **CI credentials.** The design is keyless: GitHub Actions authenticates to AWS through OIDC with short-lived credentials. No AWS keys are stored anywhere. Trust policies only accept this repository, and the apply role only accepts the manually approved `prod` environment. In the current lab account, organization policy blocks creating OIDC identity providers, so the module is disabled with `enable_github_oidc = false` and deploys run from a workstation using short-lived `aws login` credentials. The one exception is a read-only drift-check key, documented in [EXCEPTIONS.md](EXCEPTIONS.md): it can only assume a read-only role, and it rotates every 90 days.
 - **S3 locked down by default.** All four public access block settings on, ACLs disabled with `BucketOwnerEnforced`, versioning and encryption at rest.
 - **Hardened state.** The state bucket rejects any request not made over TLS, keeps old versions for 90 days, and is protected from deletion with `prevent_destroy`.
 - **Default security group locked.** No inbound or outbound rules.
+- **Default NACL managed.** All four subnets use it, and it denies SSH (22) and RDP (3389) from anywhere before any allow rule.
+- **Account baseline in code.** Password policy, account-level S3 Block Public Access, EBS default encryption and an AWS Support role are Terraform resources, so the daily drift check covers them too.
+- **Every policy validated.** Each IAM, trust and bucket policy is checked with IAM Access Analyzer before every pull request and daily in CI.
 - **No NAT Gateway.** Private subnets have no internet route, a deliberate cost and attack-surface decision.
 - **Pinned dependencies.** Terraform and provider versions are pinned, and lock files hold checksums for Linux, macOS and Windows.
 
@@ -59,15 +66,15 @@ Infrastructure code is scanned with [Checkov](https://www.checkov.io/).
 | --- | --- |
 | Passed | 223 |
 | Failed | 0 |
-| Documented exceptions | 17 |
+| Skipped (documented) | 17 |
 
-The code has 17 `#checkov:skip` comments, and all 17 apply in the current scan.
+The code has 17 `#checkov:skip` comments covering 13 distinct checks (several apply to both S3 buckets), and all 17 apply in the current scan.
 
 Every finding was either fixed or accepted with a written reason. Accepted findings are marked in the code with `#checkov:skip` comments and listed with their compensating controls in [EXCEPTIONS.md](EXCEPTIONS.md).
 
 ## Custom policies
 
-`policies/require_tags.yaml` defines **CKV2_LAB_1**, which requires `Project`, `Environment` and `Owner` tags on every taggable AWS resource. CI runs it on every pull request with `--external-checks-dir policies`.
+`policies/require_tags.yaml` defines **CKV2_LAB_1**, which requires `Project`, `Environment` and `Owner` tags on the resource types listed in the policy (VPC, subnets, route tables, buckets, roles, users, the Lambda function and others). CI runs it on every pull request with `--external-checks-dir policies`.
 
 Findings while building it:
 - Checkov does not read the AWS provider's `default_tags`, so tags are passed to each module and set on each resource explicitly. `default_tags` remains as a backup.
@@ -78,7 +85,7 @@ CIS AWS Foundations Benchmark coverage is tracked in [CIS_MAPPING.md](CIS_MAPPIN
 
 ## CI pipeline
 
-Every pull request runs four jobs in GitHub Actions. All actions are pinned to full commit SHAs, and the workflow runs with read-only permissions.
+Every pull request runs four jobs in GitHub Actions (`ci.yml`). All actions are pinned to full commit SHAs, and the workflow runs with read-only permissions.
 
 | Job | Tool | Fails the build on |
 | --- | --- | --- |
@@ -86,6 +93,17 @@ Every pull request runs four jobs in GitHub Actions. All actions are pinned to f
 | IaC scan | Checkov + custom policies | Any new infrastructure misconfiguration or missing required tag |
 | SCA and secrets | Trivy | HIGH or CRITICAL vulnerable dependencies, leaked secrets |
 | SAST | Semgrep | Insecure patterns in the Python code |
+
+A second workflow, `drift-check.yml`, runs daily at 13:17 UTC and on demand:
+
+| Step | What it does |
+| --- | --- |
+| Credentials | Key that can only assume `drift-readonly` (15-minute session); secrets scoped to the `drift` environment, protected branches only |
+| Plan | `terraform plan -detailed-exitcode -lock=false` against live AWS |
+| Drift issue | Opens or updates a `drift` issue listing only resource addresses; closes it on the next clean run |
+| Policy check | `policy-check.sh` on the same plan |
+
+It needs `issues: write` to manage the drift issue; everything else is read-only. The account ID is masked in its logs.
 
 ## Running the checks locally
 
@@ -108,7 +126,9 @@ checkov -d . --framework terraform --external-checks-dir policies --quiet --comp
 | 2 | Drift: the script lists each changed resource and attribute |
 | 1 | Error: the plan could not run |
 
-Tested end to end: a tag added to the data bucket in the console was reported as drift (`- "ChangedBy" = "console" -> null`), `terraform apply` restored the coded state, and a rerun reported no drift.
+Tested end to end, locally and in CI:
+- Locally: a tag added to the data bucket in the console was reported as drift (`- "ChangedBy" = "console" -> null`), `terraform apply` restored the coded state, and a rerun reported no drift.
+- In CI: a tag added to the Lambda function with the CLI turned the scheduled run red and opened issue #12 listing `module.app.aws_lambda_function.app: update`. After `terraform apply`, the next run was green and closed the issue automatically.
 
 Without OIDC (blocked by the account's SCP), the scheduled job uses a key that can only assume a read-only role. See [EXCEPTIONS.md](EXCEPTIONS.md).
 
@@ -131,12 +151,12 @@ All changes go through a branch and a pull request, then a squash merge into `ma
 ## Roadmap
 
 - [x] Terraform modules: network, storage, app
-- [x] GitHub OIDC roles so CI needs no stored AWS keys
-- [x] Remote state bucket and S3 backend with native locking (code complete)
+- [x] GitHub OIDC roles so CI needs no stored AWS keys (code complete; disabled because the account's SCP blocks OIDC providers)
+- [x] Remote state bucket and S3 backend with native locking
 - [x] Checkov scan triaged: findings fixed or documented in `EXCEPTIONS.md`
 - [x] GitHub Actions pipeline: SAST, SCA and IaC scanning that fail the build
 - [x] Branch protection requiring all checks to pass
-- [x] Compliance as code: CIS mapping, custom policy, drift detection (local and scheduled daily in CI)
+- [x] Compliance as code: CIS mapping, custom tag policy, all free CIS fixes applied
 - [x] Deploy to AWS (us-east-2)
 - [x] Scheduled drift detection in CI
 - [x] IAM Access Analyzer policy validation (compensating control for CIS 1.19)
@@ -145,7 +165,11 @@ All changes go through a branch and a pull request, then a squash merge into `ma
 
 ```text
 app/                  Lambda source code
+.github/workflows/
+  ci.yml              Pull request checks: Terraform, Checkov, Trivy, Semgrep
+  drift-check.yml     Daily drift detection and policy validation
 bootstrap/            Terraform state bucket, applied once
+  drift_ci.tf         Read-only identity for the drift workflow
 infra/
   main.tf             Wires the modules together
   providers.tf        Pinned Terraform and provider versions
@@ -156,6 +180,7 @@ infra/
     network/
     storage/
     app/
+    account-baseline/
     github-oidc/
 policies/             Custom Checkov policies
 check.sh              One-command Terraform checks

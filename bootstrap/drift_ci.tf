@@ -9,8 +9,8 @@ resource "aws_iam_user" "drift_ci" {
   path = "/ci/"
   tags = {
     Project     = "devsecops-lab"
-    Environment = "ci"
-    Owner       = "Harley305"
+    Environment = "lab"
+    Owner       = "chris"
   }
 }
 
@@ -34,8 +34,8 @@ resource "aws_iam_role" "drift_readonly" {
   max_session_duration = 3600
   tags = {
     Project     = "devsecops-lab"
-    Environment = "ci"
-    Owner       = "Harley305"
+    Environment = "lab"
+    Owner       = "chris"
   }
 }
 
